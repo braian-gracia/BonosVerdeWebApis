@@ -1,0 +1,42 @@
+# Dependencias y builds
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Variables de entorno / secretos
+.env
+.env.*
+!.env.example
+!.env.docker
+k8s/02-secret.yaml
+*.pem
+*.key
+
+# Logs
+*.log
+npm-debug.log*
+
+# Datos locales de Docker / BD
+mysql-data/
+pgdata/
+*.sqlite
+*.db
+
+# IDEs y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Carpetas del equipo (las que ya tenías)
+shared/
+webapis/
+presentacion/
+
+# Scripts locales (los que ya tenías)
+install-all.bat
+start-all.bat
+stop-all.bat

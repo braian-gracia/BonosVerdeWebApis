@@ -1,0 +1,667 @@
+{
+  "info": {
+    "_postman_id": "8f3b0f0e-6b0a-4d4a-9e4b-bonosverde01",
+    "name": "BonosVerde - API",
+    "description": "Coleccion REST de BonosVerde con JWT, roles de usuario/administrador y operaciones POST, GET, PUT y DELETE.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Registrar usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "pm.environment.set('token', data.token);",
+                  "pm.environment.set('refreshToken', data.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nuevo@bonosverde.com\",\n  \"name\": \"Usuario Postman\",\n  \"password\": \"postman123\",\n  \"referralCode\": \"CURV-ADM1-0001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/auth/register",
+            "description": "POST publico. Guarda token y refreshToken."
+          },
+          "response": []
+        },
+        {
+          "name": "Login usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "pm.environment.set('token', data.token);",
+                  "pm.environment.set('refreshToken', data.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"inversor@bonosverde.com\",\n  \"password\": \"inversor123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "Login administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "pm.environment.set('adminToken', data.token);",
+                  "pm.environment.set('adminRefreshToken', data.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@bonosverde.com\",\n  \"password\": \"admin123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "Renovar access token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "pm.environment.set('token', data.token);",
+                  "pm.environment.set('refreshToken', data.refreshToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/auth/refresh"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener perfil",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/auth/profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar perfil",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Carlos Inversor Actualizado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/auth/profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar contrasena",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"inversor123\",\n  \"newPassword\": \"inversor456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/auth/change-password"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usuario - Bonos",
+      "item": [
+        {
+          "name": "Catalogo completo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{bondsUrl}}/api/bonds/catalog"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar en catalogo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{bondsUrl}}/api/bonds/catalog?search=oxigeno"
+          },
+          "response": []
+        },
+        {
+          "name": "Comprar bono",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "pm.environment.set('bondId', data.bond.id);",
+                  "pm.environment.set('transactionId', data.transaction.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bondType\": \"OXYGEN\",\n  \"paymentMethod\": \"SIMULATED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{bondsUrl}}/api/bonds/purchase"
+          },
+          "response": []
+        },
+        {
+          "name": "Mis bonos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{bondsUrl}}/api/bonds/my-bonds"
+          },
+          "response": []
+        },
+        {
+          "name": "Mis bonos activos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{bondsUrl}}/api/bonds/my-bonds?status=ACTIVE"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener bono por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{bondsUrl}}/api/bonds/{{bondId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener QR del bono",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{bondsUrl}}/api/bonds/{{bondId}}/qr"
+          },
+          "response": []
+        },
+        {
+          "name": "Redimir bono",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{bondsUrl}}/api/bonds/{{bondId}}/redeem"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pagos",
+      "item": [
+        {
+          "name": "Simular pago",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "pm.environment.set('transactionId', data.transactionId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bondType\": \"FAUNA\",\n  \"paymentMethod\": \"SIMULATED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{paymentsUrl}}/api/payments/simulate"
+          },
+          "response": []
+        },
+        {
+          "name": "Estado del pago",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{paymentsUrl}}/api/payments/{{transactionId}}/status"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Referidos",
+      "item": [
+        {
+          "name": "Mi codigo CURV",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{referralsUrl}}/api/referrals/my-code"
+          },
+          "response": []
+        },
+        {
+          "name": "Estadisticas de referidos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{referralsUrl}}/api/referrals/stats"
+          },
+          "response": []
+        },
+        {
+          "name": "Aplicar codigo de referido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CURV-ADM1-0001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{referralsUrl}}/api/referrals/apply"
+          },
+          "response": []
+        },
+        {
+          "name": "Comisiones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{referralsUrl}}/api/referrals/commissions"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Estadisticas generales",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/admin/stats"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar usuarios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/admin/users?search=inversor"
+          },
+          "response": []
+        },
+        {
+          "name": "Filtrar usuarios por rol",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/admin/users?role=PREMIUM"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar bonos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/admin/bonds?status=ACTIVE"
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar transacciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/admin/transactions?status=COMPLETED"
+          },
+          "response": []
+        },
+        {
+          "name": "Listar referidos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/admin/referrals"
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar usuario temporal",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.variables.set('tempUserEmail', 'postman-demo-' + Date.now() + '@bonosverde.com');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "pm.environment.set('tempUserId', data.user.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{tempUserEmail}}\",\n  \"name\": \"Usuario Temporal Postman\",\n  \"password\": \"postman123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/auth/register"
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar rol de usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"PREMIUM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{authUrl}}/api/admin/users/{{tempUserId}}/role"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{authUrl}}/api/admin/users/{{tempUserId}}"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

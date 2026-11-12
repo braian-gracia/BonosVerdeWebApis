@@ -1,0 +1,13 @@
+[33m55ad1b7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Commit inicial
+[33m94182e8[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m actualizacion de kubernetes
+[33mc524961[m actualizacion de docker
+[33mf66cdac[m Se añadio la carpeta referral-service en los micro servicios
+[33m5d42608[m[33m ([m[1;31morigin/miguel[m[33m, [m[1;31morigin/Braian-Gracia[m[33m, [m[1;32mmiguel[m[33m)[m add bonds service
+[33m9cab50a[m Fix Prisma generator and MongoDB connection for auth-service
+[33m1d2039c[m creacion microservicios de pago y de autenticacion
+[33m72788cf[m correcion nombre AdminRoute
+[33m8607fa6[m[33m ([m[1;31morigin/samuel[m[33m)[m crear carpetas pages y hooks
+[33ma6fbb6c[m Add authentication context and route guards
+[33md88092d[m[33m ([m[1;31morigin/juandiego[m[33m)[m creacion carpeta api y components para el frontend
+[33m9183ce5[m creacion de primeras carpetas y bases del front end
+[33m615f6c1[m Initial commit

@@ -1,0 +1,234 @@
+name: bonosverde
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: bonos-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bonos_db}
+      MYSQL_USER: ${MYSQL_USER:-bonos}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bonos_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: bonos-keycloak
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: http://localhost:${FRONTEND_PORT:-8080}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_PORT:-8085}:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+
+  keycloak-init:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: bonos-keycloak-init
+    restart: "no"
+    depends_on:
+      keycloak:
+        condition: service_started
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        until /opt/keycloak/bin/kcadm.sh config credentials --server http://keycloak:8080 --realm master --user "$${KEYCLOAK_ADMIN_USER}" --password "$${KEYCLOAK_ADMIN_PASSWORD}" >/dev/null 2>&1; do
+          echo "Esperando a que Keycloak este listo..."
+          sleep 3
+        done
+        /opt/keycloak/bin/kcadm.sh add-roles -r bonosverde --uusername service-account-bonosverde-admin --cclientid realm-management --rolename manage-users --rolename view-users --rolename query-users --rolename view-realm || true
+    environment:
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+
+  auth-service:
+    build:
+      context: ./microservices/auth-service
+    container_name: bonos-auth-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "mysql://${MYSQL_USER:-bonos}:${MYSQL_PASSWORD:-bonos_pass}@mysql:3306/${MYSQL_DATABASE:-bonos_db}"
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/bonosverde/protocol/openid-connect/certs
+      KEYCLOAK_ISSUER: http://localhost:${FRONTEND_PORT:-8080}/realms/bonosverde
+      KEYCLOAK_AUDIENCE: bonosverde-api
+      KEYCLOAK_REALM: bonosverde
+      KEYCLOAK_ADMIN_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_CLIENT_ID: bonosverde-admin
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-bonosverde-admin-secret-2026}
+      KEYCLOAK_CLI_CLIENT_ID: bonosverde-cli
+      KEYCLOAK_CLI_CLIENT_SECRET: ${KEYCLOAK_CLI_CLIENT_SECRET:-bonosverde-cli-secret-2026}
+      PORT: 3001
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://localhost:5173}
+    ports:
+      - "3001:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      keycloak-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3001/api/auth/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  bonds-service:
+    build:
+      context: ./microservices/bonds-service
+    container_name: bonos-bonds-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "mysql://${MYSQL_USER:-bonos}:${MYSQL_PASSWORD:-bonos_pass}@mysql:3306/${MYSQL_DATABASE:-bonos_db}"
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/bonosverde/protocol/openid-connect/certs
+      KEYCLOAK_ISSUER: http://localhost:${FRONTEND_PORT:-8080}/realms/bonosverde
+      KEYCLOAK_AUDIENCE: bonosverde-api
+      PORT: 3002
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://localhost:5173}
+    ports:
+      - "3002:3002"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3002/api/bonds/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  payment-service:
+    build:
+      context: ./microservices/payment-service
+    container_name: bonos-payment-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "mysql://${MYSQL_USER:-bonos}:${MYSQL_PASSWORD:-bonos_pass}@mysql:3306/${MYSQL_DATABASE:-bonos_db}"
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/bonosverde/protocol/openid-connect/certs
+      KEYCLOAK_ISSUER: http://localhost:${FRONTEND_PORT:-8080}/realms/bonosverde
+      KEYCLOAK_AUDIENCE: bonosverde-api
+      PORT: 3003
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://localhost:5173}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      EPAYCO_PUBLIC_KEY: ${EPAYCO_PUBLIC_KEY:-}
+      EPAYCO_PRIVATE_KEY: ${EPAYCO_PRIVATE_KEY:-}
+      EPAYCO_CUST_ID: ${EPAYCO_CUST_ID:-}
+    ports:
+      - "3003:3003"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3003/api/payments/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  referral-service:
+    build:
+      context: ./microservices/referral-service
+    container_name: bonos-referral-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "mysql://${MYSQL_USER:-bonos}:${MYSQL_PASSWORD:-bonos_pass}@mysql:3306/${MYSQL_DATABASE:-bonos_db}"
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/bonosverde/protocol/openid-connect/certs
+      KEYCLOAK_ISSUER: http://localhost:${FRONTEND_PORT:-8080}/realms/bonosverde
+      KEYCLOAK_AUDIENCE: bonosverde-api
+      PORT: 3004
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://localhost:5173}
+    ports:
+      - "3004:3004"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3004/api/referrals/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: bonos-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      bonds-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      referral-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  mysql_data:

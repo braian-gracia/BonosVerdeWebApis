@@ -1,0 +1,133 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique @db.VarChar(255)
+  name               String              @db.VarChar(255)
+  password_hash      String              @db.VarChar(255)
+  role               Role                @default(INVESTOR)
+  curv_code          String              @unique @db.VarChar(14)
+  two_factor_secret  String?             @db.VarChar(255)
+  two_factor_enabled Boolean             @default(false)
+  total_spent        Decimal             @default(0.00) @db.Decimal(10, 2)
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
+
+  bonds              bond[]              @relation("UserBonds")
+  transactions       transaction[]       @relation("UserTransactions")
+  referrals_referrer referral[]          @relation("Referrer")
+  referrals_referred referral[]          @relation("Referred")
+  verification_codes verification_code[] @relation("UserVerificationCodes")
+
+  @@map("users")
+}
+
+model bond {
+  id               Int        @id @default(autoincrement())
+  user_id          Int
+  type             BondType
+  amount           Decimal    @default(100.00) @db.Decimal(10, 2)
+  code             String     @unique @db.VarChar(14)
+  qr_data          String?    @db.Text
+  certificate_url  String?    @db.VarChar(255)
+  status           BondStatus @default(ACTIVE)
+  purchase_date    DateTime   @default(now())
+  redeem_date      DateTime?
+  created_at       DateTime   @default(now())
+
+  user             user       @relation("UserBonds", fields: [user_id], references: [id], onDelete: Cascade)
+  transactions     transaction[] @relation("BondTransactions")
+
+  @@map("bonds")
+}
+
+model transaction {
+  id             Int           @id @default(autoincrement())
+  user_id        Int
+  bond_id        Int?
+  payment_method PaymentMethod @default(SIMULATED)
+  payment_id     String?       @db.VarChar(255)
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("USD") @db.VarChar(3)
+  status         PaymentStatus @default(PENDING)
+  created_at     DateTime      @default(now())
+
+  user           user          @relation("UserTransactions", fields: [user_id], references: [id], onDelete: Cascade)
+  bond           bond?         @relation("BondTransactions", fields: [bond_id], references: [id], onDelete: SetNull)
+
+  @@map("transactions")
+}
+
+model referral {
+  id              Int      @id @default(autoincrement())
+  referrer_id     Int
+  referred_id     Int
+  commission_rate Decimal  @default(8.00) @db.Decimal(5, 2)
+  total_earned    Decimal  @default(0.00) @db.Decimal(10, 2)
+  created_at      DateTime @default(now())
+
+  referrer        user     @relation("Referrer", fields: [referrer_id], references: [id], onDelete: Cascade)
+  referred        user     @relation("Referred", fields: [referred_id], references: [id], onDelete: Cascade)
+
+  @@unique([referrer_id, referred_id])
+  @@map("referrals")
+}
+
+model verification_code {
+  id         Int              @id @default(autoincrement())
+  user_id    Int
+  code       String           @db.VarChar(6)
+  type       VerificationType
+  expires_at DateTime
+  used       Boolean          @default(false)
+  created_at DateTime         @default(now())
+
+  user       user             @relation("UserVerificationCodes", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("verification_codes")
+}
+
+enum Role {
+  INVESTOR
+  PREMIUM
+  ADMIN
+}
+
+enum BondType {
+  OXYGEN
+  FAUNA
+  CARBON24
+  HYDROGEN
+}
+
+enum BondStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  PAYPAL
+  EPAYCO
+  SIMULATED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum VerificationType {
+  T2FA
+  EMAIL_VERIFY
+}
