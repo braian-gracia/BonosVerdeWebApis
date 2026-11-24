@@ -1,0 +1,162 @@
+name: CI/CD - BonosVerde (Docker + Kubernetes)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+  REGISTRY: ghcr.io
+  NAMESPACE: bonosverde
+
+jobs:
+  # 1. Compila y verifica todos los proyectos antes de publicar nada.
+  # El repo no define scripts "test", por lo que la verificacion es npm ci + build.
+  verify:
+    name: 1. Verificar (npm ci + build + test)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            microservices/auth-service/package-lock.json
+            microservices/bonds-service/package-lock.json
+            microservices/payment-service/package-lock.json
+            microservices/referral-service/package-lock.json
+
+      - name: Instalar dependencias y compilar
+        shell: bash
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/bonos_db
+        run: |
+          set -euo pipefail
+          proyectos=(
+            "microservices/auth-service"
+            "microservices/bonds-service"
+            "microservices/payment-service"
+            "microservices/referral-service"
+            "frontend"
+          )
+          for proyecto in "${proyectos[@]}"; do
+            echo "==> Verificando: $proyecto"
+            npm ci --prefix "$proyecto"
+            npm run build --prefix "$proyecto"
+            npm test --prefix "$proyecto" --if-present
+          done
+          echo "==> Verificacion completada correctamente"
+
+  # 2. Construye las cinco imagenes y las publica en GitHub Container Registry.
+  build-push:
+    name: 2. Construir y publicar (${{ matrix.name }})
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: auth-service
+            context: ./microservices/auth-service
+          - name: bonds-service
+            context: ./microservices/bonds-service
+          - name: payment-service
+            context: ./microservices/payment-service
+          - name: referral-service
+            context: ./microservices/referral-service
+          - name: frontend
+            context: ./frontend
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Iniciar sesion en GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalizar propietario de las imagenes
+        id: normalize
+        shell: bash
+        env:
+          GH_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          owner="$(printf '%s' "$GH_OWNER" | tr '[:upper:]' '[:lower:]')"
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          echo "Propietario normalizado: $owner"
+
+      - name: Construir y publicar imagen
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.normalize.outputs.owner }}/bonosverde-${{ matrix.name }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.normalize.outputs.owner }}/bonosverde-${{ matrix.name }}:latest
+
+  # 3. Solo corre en el runner local con Docker Desktop + kubectl.
+  # Actualiza los deployments existentes; no reinstala MySQL ni Keycloak.
+  deploy-local:
+    name: 3. Desplegar en Kubernetes (runner local)
+    needs: [verify, build-push]
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, Windows, X64, docker-desktop]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Iniciar sesion en GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalizar propietario de las imagenes
+        id: normalize
+        shell: powershell
+        env:
+          GH_OWNER: ${{ github.repository_owner }}
+        run: |
+          $owner = $env:GH_OWNER.ToLowerInvariant()
+          [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "owner=$owner`n")
+          Write-Host "Propietario normalizado: $owner"
+
+      - name: Actualizar deployments en Kubernetes
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          IMAGE_OWNER: ${{ steps.normalize.outputs.owner }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          powershell -ExecutionPolicy Bypass -File .\scripts\deploy-ci.ps1 `
+            -Registry $env:REGISTRY `
+            -Owner $env:IMAGE_OWNER `
+            -Tag $env:IMAGE_TAG `
+            -Namespace $env:NAMESPACE
